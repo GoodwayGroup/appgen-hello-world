@@ -1,0 +1,66 @@
+jobs:
+  - name: appgenerator_runCI
+    type: runCI
+    steps:
+      - OUT: appgenerator-image-staging
+    flags:
+      - appgenerator
+
+  - name: appgenerator-manifest-staging
+    type: manifest
+    steps:
+      - IN: appgenerator-image-staging
+    flags:
+      - appgenerator
+
+  - name: appgenerator-manifest-prod
+    type: manifest
+    steps:
+      - IN: appgenerator-image-prod
+    flags:
+      - appgenerator
+
+  - name: appgenerator-staging
+    type: deploy
+    steps:
+      - IN: appgenerator-manifest-staging
+        switch: off
+      - IN: appgenerator-prepare-staging
+      - IN: appgenerator-docker-options-staging-deploy
+      - IN: appgenerator-kube-cluster
+      - TASK: managed
+        deploymentMethod: blueGreen
+    flags:
+      - appgenerator
+
+  - name: appgenerator-prod
+    type: deploy
+    steps:
+      - IN: appgenerator-manifest-prod
+        switch: off
+      - IN: appgenerator-prepare-production
+      - IN: appgenerator-docker-options-prod-deploy
+      - IN: appgenerator-kube-cluster
+      - TASK: managed
+        deploymentMethod: blueGreen
+    flags:
+      - appgenerator
+
+  - name: appgenerator-tagRelease
+    type: runCLI
+    steps:
+      - IN: appgenerator-repo
+      - IN: appgenerator-tagrelease-cliconfig
+      - IN: appgenerator-manifest-staging
+        switch: off
+      - OUT: appgenerator-image-prod
+      - TASK:
+        - script: |
+            MANIFEST=$(export | grep '.*\ .*=\"manifest\"' | awk '{print $3;}' | sed 's/\(.*\)_TYPE=.*/\1/')
+            VARNAME=${MANIFEST}_STATE
+            IMAGE=goodwaygroup/appgenerator:$(jq -r '.[] | .images[] | select(.image | contains ("goodwaygroup/appgenerator")).tag' ${!VARNAME}/manifests.json)
+            docker pull $IMAGE
+            REPO=$(export | grep '.*\ .*=\"gitRepo\"' | awk '{print $3;}' | sed 's/\(.*\)_TYPE=.*/\1/')
+            TAG_VAR=${REPO}_GIT_TAG_NAME
+            docker tag -f $IMAGE goodwaygroup/appgenerator:${!TAG_VAR}
+           
