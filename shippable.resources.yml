@@ -1,0 +1,90 @@
+resources:
+  - name: appgenerator-repo
+    type: gitRepo
+    integration: github
+    pointer:
+      sourceName: "goodwaygroup/appgenerator"
+      buildOnTagPush: true
+      buildOnCommit: false
+      tags:
+        only:
+          - "v1.*"
+    flags:
+      - appgenerator
+      
+  - name: appgenerator-image-staging
+    type: image
+    integration: docker-hub
+    pointer:
+      sourceName: "goodwaygroup/appgenerator"
+    seed:
+      versionName: "latest"
+    flags:
+      - appgenerator
+
+  - name: appgenerator-image-prod
+    type: image
+    integration: docker-hub
+    pointer:
+      sourceName: "goodwaygroup/appgenerator"
+    seed:
+      versionName: "latest"
+    flags:
+      - appgenerator
+
+  - name: appgenerator-docker-options-prod-deploy
+    type: dockerOptions
+    version:
+      volumes:
+        - "productionenv:/etc/secrets:ro"
+      labels:
+        "app": "appgenerator-Prod"
+      cpuShares: 100
+      deployment:
+        replicas: 2
+      pod:
+        volumes:
+          - name: "productionenv"
+            secret: 
+              secretName: "production.env"
+        imagePullSecrets:
+          - name: dockerhub
+    flags:
+      - Golive
+
+  - name: appgenerator-docker-options-staging-deploy
+    type: dockerOptions
+    version:
+      volumes:
+        - "stagingenv:/etc/secrets:ro"
+      labels:
+        "app": "appgenerator-Staging"
+      cpuShares: 100
+      deployment:
+        replicas: 2
+      pod:
+        volumes:
+          - name: "stagingenv"
+            secret: 
+              secretName: "staging.env"
+        imagePullSecrets:
+          - name: dockerhub
+    flags:
+      - appgenerator
+
+  - name: appgenerator-tagrelease-cliconfig
+    type: cliConfig
+    integration: docker-hub
+    flags:
+      - appgenerator
+  
+  - name: appgenerator-kube-cliconfig
+    type: cliConfig
+    integration: kube
+    flags:
+      - appgenerator
+
+  - name: appgenerator-kube-cluster
+    type: cluster
+    integration: kube
+ 
